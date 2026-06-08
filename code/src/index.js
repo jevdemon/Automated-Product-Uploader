@@ -35,12 +35,14 @@ const INPUT_FOLDERS = {
   light: path.join(BASE_INPUT, 'regular'),
   heavy: path.join(BASE_INPUT, 'heavy'),
   apron: path.join(BASE_INPUT, 'aprons'),
+  mobile: path.join(BASE_INPUT, 'mobile'),
 };
 
 const PRICES = {
   light: parseFloat(process.env.PRICE_LIGHT  || 20),
   heavy: parseFloat(process.env.PRICE_HEAVY  || 25),
-  apron: parseFloat(process.env.PRICE_APRON  || 15),
+  apron: parseFloat(process.env.PRICE_APRON  || 20),
+  mobile: parseFloat(process.env.PRICE_MOBILE || 15),
 };
 
 [...Object.values(INPUT_FOLDERS), OUTPUT_FOLDER, path.join(__dirname, '../logs')].forEach(dir => {
@@ -84,6 +86,7 @@ function enqueue(filePath, forcedType) {
 function getForcedType(filePath) {
   if (filePath.includes(`${path.sep}heavy${path.sep}`))   return 'heavy';
   if (filePath.includes(`${path.sep}aprons${path.sep}`))  return 'apron';
+  if (filePath.includes(`${path.sep}mobile${path.sep}`))  return 'mobile';
   return 'light';
 }
 
@@ -120,6 +123,7 @@ watcher
     logger.info(`  input/regular/ → light fabric bags  $${PRICES.light}`);
     logger.info(`  input/heavy/   → heavy fabric bags  $${PRICES.heavy}`);
     logger.info(`  input/aprons/  → aprons             $${PRICES.apron}`);
+	logger.info(`  input/mobile/  → mobile             $${PRICES.mobile}`);
     logger.info(`  Output:   ${OUTPUT_FOLDER}`);
     logger.info(`  Notify:   ${process.env.NOTIFY_EMAILS}`);
     logger.info('─'.repeat(60));

@@ -7,7 +7,7 @@ const logger = require('./logger');
 
 /**
  * Process a single batch photo end-to-end.
- * forcedType: 'light' | 'heavy' | 'apron'
+ * forcedType: 'light' | 'heavy' | 'apron' | 'mobile'
  */
 async function processPhoto(imagePath, forcedType) {
   const filename = path.basename(imagePath);
@@ -39,11 +39,11 @@ async function processPhoto(imagePath, forcedType) {
     const croppedBags = await cropBags(imagePath, detectedBags, batchDir);
 
     // ── Step 3: Render (puff or mannequin) ───────────────────
-    const renderLabel = forcedType === 'apron' ? 'Rendering on mannequin' : 'Puffing';
+    const renderLabel = forcedType === 'apron' | 'mobile' ? 'Rendering on mannequin' : 'Puffing';
     logger.info(`[3/4] ${renderLabel}...`);
 
     for (const bag of croppedBags) {
-   	  const rendered = forcedType === 'apron'
+		const rendered = (forcedType === 'apron' || forcedType === 'mobile')
         ? await renderApron(bag, batchDir, forcedType)
         : await puffBag(bag, batchDir, forcedType);	
 
@@ -53,7 +53,7 @@ async function processPhoto(imagePath, forcedType) {
 
       // Generate slightly varied brand story for this bag
       logger.info(`  Generating brand story...`);
-      const brandStory = await generateBrandStory(rendered.name, rendered.description);
+      const brandStory = await generateBrandStory(rendered.name, rendered.description, forcedType);
 
       bags.push({
         ...rendered,
@@ -69,7 +69,7 @@ async function processPhoto(imagePath, forcedType) {
     // ── Step 4: Upload to WooCommerce ─────────────────────────
     logger.info('[4/4] Uploading to WooCommerce as drafts...');
     for (const bag of bags) {
-      const result = await uploadBag(bag);
+      const result = await uploadBag(bag, forcedType);
       results.push(result);
     }
 

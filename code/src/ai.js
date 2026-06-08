@@ -18,7 +18,8 @@ function getClient() {
 const PRICES = {
   heavy: parseFloat(process.env.PRICE_HEAVY || 25),
   light: parseFloat(process.env.PRICE_LIGHT || 20),
-  apron: parseFloat(process.env.PRICE_APRON || 15),
+  apron: parseFloat(process.env.PRICE_APRON || 20),
+  mobile: parseFloat(process.env.PRICE_MOBILE || 15),
 };
 
 /**
@@ -32,9 +33,7 @@ async function detectBags(imagePath, forcedType) {
   const ext = path.extname(imagePath).slice(1).toLowerCase();
   const mediaType = ext === 'png' ? 'image/png' : 'image/jpeg';
   const client = getClient();
-
-  const itemWord = forcedType === 'apron' ? 'apron' : 'bag';
-
+  const itemWord = forcedType === 'apron' ? 'apron' : forcedType === 'mobile' ? 'mobile' : 'bag';
   const response = await client.chat.completions.create({
     model: 'gpt-4o',
     max_tokens: 2000,
@@ -88,8 +87,8 @@ Return ONLY valid JSON, no markdown fences:
       parsed.bags[i] = { ...bag, name: uniqueName };
     } else {
       // All whimsical variants exhausted — ask AI for a completely new name
-      logger.info(`  Requesting completely new name from AI for bag ${i + 1}...`);
-      const newName = await generateAlternativeName(bag, imagePath, mediaType, imageBase64);
+      logger.info(`  Requesting completely new name from AI for ${itemWord} ${i + 1}...`);
+      const newName = await generateAlternativeName(bag, imagePath, mediaType, imageBase64, itemWord);
       const finalName = await ensureUniqueName(newName) || `${newName} II`;
       parsed.bags[i] = { ...bag, name: finalName };
     }
@@ -179,7 +178,7 @@ async function cropBags(imagePath, bags, outputDir) {
 /**
  * Ask AI for a completely new name when all whimsical variants are exhausted.
  */
-async function generateAlternativeName(bag, imagePath, mediaType, imageBase64) {
+async function generateAlternativeName(bag, imagePath, mediaType, imageBase64, itemWord) {
   const client = getClient();
   try {
     const response = await client.chat.completions.create({
@@ -194,9 +193,9 @@ async function generateAlternativeName(bag, imagePath, mediaType, imageBase64) {
           },
           {
             type: 'text',
-            text: `This upcycled bag was going to be named "${bag.name}" but that name is already taken along with all its whimsical variants.
+            text: `This upcycled ${itemWord} was going to be named "${bag.name}" but that name is already taken along with all its whimsical variants.
 
-Please come up with a completely different creative "Miss ___" name for this bag based on its fabric pattern, colors, and vibe. The name must be fresh and distinct — not a variation of "${bag.name}".
+Please come up with a completely different creative "Miss ___" name for this ${itemWord} based on its fabric pattern, colors, and vibe. The name must be fresh and distinct — not a variation of "${bag.name}".
 
 Return ONLY the name, nothing else. Example: Miss Meadow`
           }
@@ -216,27 +215,30 @@ Return ONLY the name, nothing else. Example: Miss Meadow`
  * Generate a slightly varied brand story for each bag.
  * Keeps the same key points but varies the wording to keep it fresh.
  */
-async function generateBrandStory(bagName, description) {
-  const client = getClient();
+async function generateBrandStory(bagName, description, forcedType = 'bag') {
+  const itemWord = forcedType === 'apron' ? 'apron' : forcedType === 'mobile' ? 'mobile' : 'bag';  
+  const article  = forcedType === 'apron' ? 'an' : 'a';
+  const client = getClient();  
   try {
     const response = await client.chat.completions.create({
       model: 'gpt-4o',
       max_tokens: 300,
       messages: [{
         role: 'user',
-        content: `Generate a slightly varied version of this brand story for a bag called "${bagName}". 
-Keep the same meaning and key points but vary the wording slightly so each bag feels unique.
-Do NOT change the dimensions. Return ONLY valid JSON, no markdown:
+		content: `Generate a slightly varied brand story for ${article} ${itemWord} called "${bagName}".
+		Keep the same meaning and key points but vary the wording slightly so each ${itemWord} feels unique.
+		Do NOT change the dimensions. Return ONLY valid JSON, no markdown:
 
-{
-  "occupation": "Shopping Bag",
-  "handmadeBy": "An amazing local woman",
-  "handmadeFrom": "Upcycled material that was donated or found at a local thrift store.",
-  "quality": "Each bag has finished seams, reinforced handles and is sewn to last.",
-  "purpose": "The best part — a portion of all profits go back into the community at Karis Support Society. Plus you are supporting zero waste solutions for our lovely planet."
-}
+		{
+		  "occupation": "${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'}",    
+		  "handmadeBy": "An amazing local woman",
+		  "handmadeFrom": "Upcycled material that was donated or found at a local thrift store.",
+		  "quality": "Each ${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.",
+		  "purpose": "The best part — a portion of all profits go back into the community at <a href='https://karis-society.org/about/'>Karis Support Society</a>. Plus you are supporting zero waste solutions for our lovely planet."		  
+		}
 
-Vary the wording slightly for each field — especially handmadeBy, handmadeFrom, quality and purpose — while keeping the same meaning. occupation should always be "Shopping Bag".`
+		Vary the wording slightly for each field — especially handmadeBy, handmadeFrom, quality and purpose — while keeping the same meaning. When varying the wording you MUST ensure that all words used are valid English words and are grammatically correct. occupation should always be "${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'}".
+		When occupation is Loot Bag include the following text at the end of the quality section: NOTE: Items shown in the Loot Bag are for illustrative purposes only. `		
       }]
     });
 
@@ -248,162 +250,33 @@ Vary the wording slightly for each field — especially handmadeBy, handmadeFrom
     const missing = required.filter(k => !parsed[k]);
     if (missing.length > 0) {
       logger.warn(`  Brand story missing fields: ${missing.join(', ')} — using defaults`);
-      return {
-        occupation: 'Shopping Bag',
-        handmadeBy: 'An amazing local woman',
-        handmadeFrom: 'Upcycled material that was donated or found at a local thrift store.',
-        quality: 'Each bag has finished seams, reinforced handles and is sewn to last.',
-        purpose: 'The best part — a portion of all profits go back into the community at Karis Support Society. Plus you are supporting zero waste solutions for our lovely planet.'
-      };
+	  return {
+		occupation: itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag',
+                    
+		handmadeBy: 'An amazing local woman',
+		handmadeFrom: 'Upcycled material that was donated or found at a local thrift store.',
+		quality: `Each ${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.`,
+		purpose: 'The best part — a portion of all profits go back into the community at <a href="https://karis-society.org/about/">Karis Support Society</a>. Plus you are supporting zero waste solutions for our lovely planet.',
+		};
     }
-    return parsed;  } catch (err) {
-    logger.warn(`  Brand story generation failed: ${err.message} — using defaults`);
-    return {
-      occupation: 'Shopping Bag',
-      handmadeBy: 'An amazing local woman',
-      handmadeFrom: 'Upcycled material that was donated or found at a local thrift store.',
-      quality: 'Each bag has finished seams, reinforced handles and is sewn to last.',
-      purpose: 'The best part — a portion of all profits go back into the community at Karis Support Society. Plus you are supporting zero waste solutions for our lovely planet.'
-    };
-  }
-}
-
-/* detectTag
- * forcedType: 'light'|'heavy' = bag, 'apron' = apron, 'puffed' = post-puff scan
- * Returns normalized bbox {x,y,w,h} or null if no tag found.
- */
-async function detectTag(imagePath, forcedType = 'light') {
-  const client = getClient();
-  const imageBase64 = fs.readFileSync(imagePath).toString('base64');
-  const ext = path.extname(imagePath).slice(1).toLowerCase();
-  const mediaType = ext === 'png' ? 'image/png' : 'image/jpeg';
-
-  const locationHint = forcedType === 'apron'
-    ? 'It will always appear on the top center of the apron between the neck straps.'
-    : forcedType === 'puffed'
-    ? 'It may appear anywhere on the bag — look carefully for a small rectangular white fabric label.'
-    : 'It will always appear on the top center of the bag between the bag handles.';
-
-  try {
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o',
-      max_tokens: 200,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url: `data:${mediaType};base64,${imageBase64}`, detail: 'high' }
-          },
-          {
-            type: 'text',
-            text: `Look for a small rectangular fabric tag sewn onto this ${forcedType === 'apron' ? 'apron' : 'bag'}. ${locationHint} The rectangular fabric tag contains two lines of text. The first line says "ARTSY PHARTSY". The second line beneath it says "OLD MADE NEW".
-
-If you find the tag, return its bounding box as normalized coordinates (0.0-1.0) from top-left.
-If no tag is visible, return null for bbox.
-
-Return ONLY valid JSON, no markdown:
-{ "found": true, "bbox": { "x": 0.3, "y": 0.2, "w": 0.15, "h": 0.06 } }
-or
-{ "found": false, "bbox": null }`
-          }
-        ]
-      }]
-    });
-
-    const text = response.choices[0].message.content.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(text);
-    if (parsed.found && parsed.bbox) {
-      logger.info(`  Tag detected at x:${parsed.bbox.x.toFixed(2)} y:${parsed.bbox.y.toFixed(2)}`);
-      return parsed.bbox;
-    }
-    logger.info(`  No branding tag detected in image`);
-    return null;
-  } catch (err) {
-    logger.warn(`  Tag detection failed: ${err.message}`);
-    return null;
-  }
-}
-
-/**
- * After rendering, composite the original clean tag back onto the rendered image.
- * Only replaces if tag is missing or shape is warped.
- */
-async function replaceTag(croppedPath, renderedPath, originalTagBbox) {
-  try {
-    const origMeta = await sharp(croppedPath).metadata();
-    const origW = origMeta.width;
-    const origH = origMeta.height;
-    const puffedSize = 1024;
-
-    // Detect where the tag landed in the rendered image
-    logger.info(`  Checking tag integrity in rendered image...`);
-    const renderedTagBbox = await detectTag(renderedPath, 'puffed');
-
-    if (renderedTagBbox) {
-      // Compare aspect ratios — if similar, tag shape is intact, leave it alone
-      const origAspect    = originalTagBbox.w / originalTagBbox.h;
-      const renderedAspect = renderedTagBbox.w / renderedTagBbox.h;
-      const aspectDiff    = Math.abs(origAspect - renderedAspect) / origAspect;
-
-      if (aspectDiff < 0.4) {
-        logger.info(`  Tag shape intact (aspect ratio diff: ${(aspectDiff * 100).toFixed(0)}%) — leaving as-is`);
-        return true;
-      }
-      logger.info(`  Tag shape warped (aspect ratio diff: ${(aspectDiff * 100).toFixed(0)}%) — replacing with original`);
-    } else {
-      logger.info(`  Tag not found in rendered image — replacing with original`);
-    }
-
-    // Tag is missing or warped — paste clean original back
-    const pad = 4;
-    const tagLeft   = Math.max(0, Math.floor(originalTagBbox.x * origW) - pad);
-    const tagTop    = Math.max(0, Math.floor(originalTagBbox.y * origH) - pad);
-    const tagRight  = Math.min(origW, Math.ceil((originalTagBbox.x + originalTagBbox.w) * origW) + pad);
-    const tagBottom = Math.min(origH, Math.ceil((originalTagBbox.y + originalTagBbox.h) * origH) + pad);
-    const tagW = tagRight - tagLeft;
-    const tagH = tagBottom - tagTop;
-
-    // Use rendered position if found, otherwise scale from original
-    let destLeft, destTop, destW, destH;
-    if (renderedTagBbox) {
-      destLeft = Math.round(renderedTagBbox.x * puffedSize);
-      destTop  = Math.round(renderedTagBbox.y * puffedSize);
-      destW    = Math.round(renderedTagBbox.w * puffedSize);
-      destH    = Math.round(renderedTagBbox.h * puffedSize);
-    } else {
-      const scaleX = puffedSize / origW;
-      const scaleY = puffedSize / origH;
-      destLeft = Math.round(tagLeft * scaleX);
-      destTop  = Math.round(tagTop  * scaleY);
-      destW    = Math.round(tagW    * scaleX);
-      destH    = Math.round(tagH    * scaleY);
-    }
-
-    // Clamp to image bounds
-    destLeft = Math.max(0, Math.min(destLeft, puffedSize - 10));
-    destTop  = Math.max(0, Math.min(destTop,  puffedSize - 10));
-    destW    = Math.max(10, Math.min(destW,   puffedSize - destLeft));
-    destH    = Math.max(10, Math.min(destH,   puffedSize - destTop));
-
-    const tagBuffer = await sharp(croppedPath)
-      .extract({ left: tagLeft, top: tagTop, width: tagW, height: tagH })
-      .resize(destW, destH, { fit: 'fill' })
-      .png()
-      .toBuffer();
-
-    const resultBuffer = await sharp(renderedPath)
-      .composite([{ input: tagBuffer, left: destLeft, top: destTop, blend: 'over' }])
-      .png()
-      .toBuffer();
-
-    fs.writeFileSync(renderedPath, resultBuffer);
-    logger.info(`  Tag restored on rendered image`);
-    return true;
-
-  } catch (err) {
-    logger.warn(`  Tag restoration failed: ${err.message} — keeping rendered image as-is`);
-    return false;
+	// Ensure Karis link is always present regardless of AI wording
+	if (parsed.purpose) {
+	  parsed.purpose = parsed.purpose.replace(
+		/(?<!">)Karis Support Society(?!<\/a>)/g,
+		'<a href="https://karis-society.org/about/">Karis Support Society</a>'
+	  );
+	}
+    return parsed;
+  } 
+  catch (err) {
+	logger.warn(`  Brand story generation failed: ${err.message} — using defaults`);
+	return {
+		occupation: itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag',	
+		handmadeBy: 'An amazing local woman',
+		handmadeFrom: 'Upcycled material that was donated or found at a local thrift store.',
+		quality: `Each ${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.`,
+		purpose: 'The best part — a portion of all profits go back into the community at <a href="https://karis-society.org/about/">Karis Support Society</a>. Plus you are supporting zero waste solutions for our lovely planet.',		
+	};
   }
 }
 
@@ -419,12 +292,12 @@ async function puffBag(bagData, outputDir, forcedType = 'light') {
   logger.info(`  Puffing: ${bagData.name}...`);
 
   const presentations = [
-    'Show the bag upright with handles standing naturally tall, looking full and appealing as a product photo.',
-    'Show the bag upright with the handles flopped naturally forward over the front of the bag, as if just set down.',
-    'Show the bag slightly angled to the left with handles standing tall, giving a dynamic product shot feel.',
-    'Show the bag slightly angled to the right with one handle flopped forward and one standing, looking natural and casual.',
-    'Show the bag upright with both handles relaxed and drooping slightly to each side, looking soft and natural.',
-    'Show the bag from a slight three-quarter angle with handles flopped naturally forward.',
+    'Show the bag upright with handles standing naturally tall, looking full and appealing as a product photo. The location where the handles are sewn to the bag must match the original photo - do not change this.',
+    'Show the bag upright with the handles flopped naturally forward over the front of the bag, as if just set down. The location where the handles are sewn to the bag must match the original photo - do not change this.',
+    'Show the bag slightly angled to the left with handles standing tall, giving a dynamic product shot feel. The location where the handles are sewn to the bag must match the original photo - do not change this.',
+    'Show the bag slightly angled to the right with one handle flopped forward and one standing, looking natural and casual. The location where the handles are sewn to the bag must match the original photo - do not change this.',
+    'Show the bag upright with both handles relaxed and drooping slightly to each side, looking soft and natural. The location where the handles are sewn to the bag must match the original photo - do not change this.',
+    'Show the bag from a slight three-quarter angle with handles flopped naturally forward. The location where the handles are sewn to the bag must match the original photo - do not change this.',
   ];
   const presentation = presentations[Math.floor(Math.random() * presentations.length)];
   logger.info(`  Presentation style: ${presentation}`);
@@ -467,27 +340,35 @@ Professional product photography style, soft even lighting, no harsh shadows.`;
 }
 
 /**
- * Step 3b: Render an apron on a mannequin using OpenAI image editing.
- * Uses detectTag + replaceTag for aprons since the transformation is more dramatic.
- */
-async function renderApron(bagData, outputDir, forcedType = 'apron') {
+ * Step 3b: Render an apron or a mobile bag on a mannequin using OpenAI image editing.
+ */ 
+async function renderApron(bagData, outputDir, forcedType) {
   const client = getClient();
   const safeName = bagData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   const renderedPath = path.join(outputDir, `${safeName}_mannequin.png`);
 
   logger.info(`  Rendering on mannequin: ${bagData.name}...`);
-
-  // Detect tag before rendering so we can restore it if needed
-  const tagBbox = await detectTag(bagData.croppedPath, forcedType);
-
-  const prompt = `This is a flat upcycled fabric apron.
-Place this apron on a professional faceless dress form mannequin, shown from the front.
-The apron strings should be tied naturally at the waist, with the bib sitting flat against the upper chest of the mannequin.
-Keep all fabric patterns, colors, textures, labels, and design elements exactly as they appear — do not alter the fabric in any way.
-There is a small rectangular fabric branding tag sewn onto the top center of the apron between the neck straps. This tag MUST remain at the top center of the apron between the neck straps — do not move it. The tag's rectangular shape must be preserved. The text on the tag must not be changed or rewritten in any way.
-Use a clean, neutral white or light gray studio background.
-Professional product photography style, soft even lighting, no harsh shadows.
-The mannequin should be simple, neutral-colored, and not distract from the apron.`;
+   
+  let prompt = "";
+  if(forcedType === 'apron'){
+	  prompt = `This is a flat upcycled fabric apron.
+	Place this apron on a professional faceless dress form mannequin, shown from the front.
+	The apron strings should be tied naturally around the waist with the tied bow in the back of the mannequin, the tied bow must not be visible. The bib of the apron must be sitting flat against the upper chest of the mannequin. Please make the rendered apron on the mannequin 5 inches shorter in length.
+	Keep all fabric patterns, colors, textures, labels, and design elements exactly as they appear — do not alter the fabric in any way.
+	There is a small rectangular fabric branding tag sewn onto the top center of the apron between the neck straps. This tag MUST remain at the top center of the apron between the neck straps — do not move it. The tag's rectangular shape must be preserved. The text on the tag must not be changed or rewritten in any way. 
+	Use a clean, neutral white or light gray studio background.
+	Professional product photography style, soft even lighting, no harsh shadows.
+	The mannequin should be simple, neutral-colored, and not distract from the apron.`;
+  } else {
+	  prompt = `This is a flat upcycled small bag with a long shoulder strap. The small bag is suitable for carrying a bottle of water, a bottle of soda, a smart phone, or other small items.
+	Place this small bag on a professional faceless dress form mannequin, with the strap draped over one shoulder and the small bag resting against the opposite hip in a cross-body style. It is importent to vary which shoulder the strap is draped over - do not always pick the same shoulder. Only one side of the strap should be visible - the other side of the strap will be behind the mannequin's back. The entire front the small bag should be visible on the opposite hip from the shoulder on which the strap was draped. At the top of the small bag is an opening as wide as the small bag itself, revealing the top of an item that is being stored in the small bag. The item in the small bag can be a Kindle, a smart phone, a bottle of water, or a bottle of Diet Coke. Randomize the items you choose to put into the small bag. The small bag has a small pocket centered 3 inches directly below the opening on the top of the bag. This small pocket is made out of the same colors and patterns as the rest of the small bag, meaning the small pocket will not be visible unless there is something stored in it. We should see a pair of sunglasses or cards sticking out of the small pocket on the small bag. The small pocket should be empty if the small bag contains a bottle of water or a bottle of soda.
+	Do not change the size of the small bag or relocate the small pocket on the small bag - these must remain unchanged from the original photo. 
+	Keep all fabric patterns, colors, textures, labels, and design elements exactly as they appear — do not alter the fabric in any way.
+	There is a small rectangular fabric branding tag sewn onto the top center of the small bag between the shoulder straps. This tag MUST remain at the top center of the small bag between the shoulder straps — do not move it. The tag's rectangular shape must be preserved. The text on the tag must not be changed or rewritten in any way. 
+	Use a clean, neutral white or light gray studio background.
+	Professional product photography style, soft even lighting, no harsh shadows.
+	The mannequin should be simple, neutral-colored, and not distract from the small bag.`;	  
+  }
 
   try {
     const pngBuffer = await sharp(fs.readFileSync(bagData.croppedPath)).png().toBuffer();
@@ -507,11 +388,6 @@ The mannequin should be simple, neutral-colored, and not distract from the apron
 
     const imgData = response.data[0].b64_json;
     fs.writeFileSync(renderedPath, Buffer.from(imgData, 'base64'));
-
-    // For aprons, also attempt tag restoration since the transformation is dramatic
-    if (tagBbox) {
-      await replaceTag(bagData.croppedPath, renderedPath, tagBbox);
-    }
 
     logger.info(`  Mannequin render complete: ${bagData.name} → ${path.basename(renderedPath)}`);
     return { ...bagData, puffedPath: renderedPath };
@@ -584,4 +460,4 @@ function generateSKU(name) {
   return `${prefix}-${namePart}-${ts}${rand}`;
 }
 
-module.exports = { detectBags, cropBags, puffBag, renderApron, detectTag, replaceTag, prepareSecondaryImage, generateBrandStory, generateSKU, PRICES };
+module.exports = { detectBags, cropBags, puffBag, renderApron, prepareSecondaryImage, generateBrandStory, generateSKU, PRICES };

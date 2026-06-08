@@ -120,8 +120,23 @@ async function uploadImage(imagePath, altText) {
   }
 }
 
-async function createDraftProduct(bag, imageIds = []) {
+async function createDraftProduct(bag, imageIds = [], forcedType) {
   // Build the brand story with slight AI variation on key points
+  itemDimensions = '';
+  
+switch (forcedType) {
+  case 'apron':
+    itemType = 'Apron';
+    itemDimensions = 'Height (top of apron bib to bottom of apron): 30 inches, Width (distance between waist straps): 31 inches, Length of each waist strap: 31 inches';
+    break;
+  case 'mobile':
+    itemType = 'Loot Bag';
+    itemDimensions = '5 inches wide, 7.5 inches high. Suitable for carrying bottled water, a smartphone, a Kindle, or other loot. A smaller front pocket is also available to carry sunglasses, keys, cards, or other items.';
+    break;
+  default:
+    itemType = 'Bag';
+    itemDimensions = '14 inches wide, 15 inches high and 5 inches deep';
+}
   const brandStory = `
 <ul>
   <li><strong>Occupation:</strong> ${bag.brandStory.occupation}</li>
@@ -129,7 +144,7 @@ async function createDraftProduct(bag, imageIds = []) {
   <li><strong>Handmade from:</strong> ${bag.brandStory.handmadeFrom}</li>
   <li><strong>Quality:</strong> ${bag.brandStory.quality}</li>
   <li><strong>Purpose:</strong> ${bag.brandStory.purpose}</li>
-  <li><strong>Bag Dimensions:</strong> 14 inches wide, 15 inches high and 5 inches deep</li>
+  <li><strong>${itemType} Dimensions:</strong> ${itemDimensions}</li>
 </ul>`;
 
   const fullDescription = `<p>${bag.description}</p>${brandStory}`;
@@ -141,7 +156,10 @@ async function createDraftProduct(bag, imageIds = []) {
     short_description: fullDescription,
     regular_price: bag.price.toString(),
     sku: bag.sku,
-    manage_stock: false,
+    manage_stock: true,
+    stock_quantity: 1,
+    stock_status: 'instock',
+    sold_individually: true,
     images: imageIds,
     categories: [{ id: 22 }],
     meta_data: [
@@ -162,7 +180,7 @@ async function createDraftProduct(bag, imageIds = []) {
   return { id: product.id, adminUrl };
 }
 
-async function uploadBag(bag) {
+async function uploadBag(bag, forcedType) {
   const puffedPath = bag.puffedPath || bag.croppedPath;
   logger.info(`  Uploading: ${bag.name} (${bag.sku})`);
 
@@ -199,7 +217,7 @@ async function uploadBag(bag) {
       return { name: bag.name, sku: bag.sku, ok: false, error: 'Primary image upload failed after all retries' };
     }
 
-    const { id, adminUrl } = await createDraftProduct(bag, imageIds);
+    const { id, adminUrl } = await createDraftProduct(bag, imageIds, forcedType);
     logger.info(`    Product created as draft (ID: ${id})`);
 
     return {
