@@ -92,7 +92,7 @@ Fill in each value:
 - Use the 16-character password it generates (spaces are fine to include)
 
 **Notification emails**
-- Comma-separated list, e.g.: `wife@gmail.com,john@gmail.com`
+- Comma-separated list, e.g.: `email1@gmail.com,email2@gmail.com`
 
 ### 6. Set up the input folder
 The tool watches the `input/` folder inside the project.
