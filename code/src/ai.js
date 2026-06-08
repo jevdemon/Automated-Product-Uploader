@@ -233,7 +233,7 @@ async function generateBrandStory(bagName, description, forcedType = 'bag') {
 		  "occupation": "${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'}",    
 		  "handmadeBy": "An amazing local woman",
 		  "handmadeFrom": "Upcycled material that was donated or found at a local thrift store.",
-		  "quality": "Each ${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.",
+		  "quality": "Each ${itemWord === 'apron' ? 'apron' : itemWord === 'mobile' ? 'loot bag' : 'shopping bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.",
 		  "purpose": "The best part — a portion of all profits go back into the community at <a href='https://karis-society.org/about/'>Karis Support Society</a>. Plus you are supporting zero waste solutions for our lovely planet."		  
 		}
 
@@ -255,7 +255,7 @@ async function generateBrandStory(bagName, description, forcedType = 'bag') {
                     
 		handmadeBy: 'An amazing local woman',
 		handmadeFrom: 'Upcycled material that was donated or found at a local thrift store.',
-		quality: `Each ${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.`,
+		quality: `Each ${itemWord === 'apron' ? 'apron' : itemWord === 'mobile' ? 'loot bag' : 'shopping bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.`,
 		purpose: 'The best part — a portion of all profits go back into the community at <a href="https://karis-society.org/about/">Karis Support Society</a>. Plus you are supporting zero waste solutions for our lovely planet.',
 		};
     }
@@ -274,7 +274,7 @@ async function generateBrandStory(bagName, description, forcedType = 'bag') {
 		occupation: itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag',	
 		handmadeBy: 'An amazing local woman',
 		handmadeFrom: 'Upcycled material that was donated or found at a local thrift store.',
-		quality: `Each ${itemWord === 'apron' ? 'Apron' : itemWord === 'mobile' ? 'Loot Bag' : 'Shopping Bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.`,
+		quality: `Each ${itemWord === 'apron' ? 'apron' : itemWord === 'mobile' ? 'loot bag' : 'shopping bag'} has finished seams${itemWord === 'bag' ? ', reinforced handles' : ', a handy front pocket,'} and is sewn to last.`,
 		purpose: 'The best part — a portion of all profits go back into the community at <a href="https://karis-society.org/about/">Karis Support Society</a>. Plus you are supporting zero waste solutions for our lovely planet.',		
 	};
   }
@@ -353,7 +353,7 @@ async function renderApron(bagData, outputDir, forcedType) {
   if(forcedType === 'apron'){
 	  prompt = `This is a flat upcycled fabric apron.
 	Place this apron on a professional faceless dress form mannequin, shown from the front.
-	The apron strings should be tied naturally around the waist with the tied bow in the back of the mannequin, the tied bow must not be visible. The bib of the apron must be sitting flat against the upper chest of the mannequin. Please make the rendered apron on the mannequin 5 inches shorter in length.
+	The apron strings should be tied naturally around the waist and tied in a bow behind the back of the mannequin. The apron strings cannot be wrapped around to the front of the mannequin and MUST NOT be tied in a bow in the front of the mannequin. No tied bows should ever be seen on the front of the mannequin. The bib of the apron must be sitting flat against the upper chest of the mannequin. Please make the rendered apron on the mannequin 5 inches shorter in length.
 	Keep all fabric patterns, colors, textures, labels, and design elements exactly as they appear — do not alter the fabric in any way.
 	There is a small rectangular fabric branding tag sewn onto the top center of the apron between the neck straps. This tag MUST remain at the top center of the apron between the neck straps — do not move it. The tag's rectangular shape must be preserved. The text on the tag must not be changed or rewritten in any way. 
 	Use a clean, neutral white or light gray studio background.
